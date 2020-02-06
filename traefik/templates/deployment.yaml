@@ -1,3 +1,19 @@
+{{- if .Values.persistance.acme.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: traefik-acme-persistance
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: {{ .Values.persistance.acme.storageSize }}
+{{- end -}}
+
+---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,6 +45,12 @@ spec:
     spec:
       serviceAccountName: {{ template "traefik.fullname" . }}
       terminationGracePeriodSeconds: 60
+      {{- if .Values.persistance.acme.enabled }}
+      volumes:
+        - name: acme-volume
+          persistentVolumeClaim:
+            claimName: traefik-acme-persistance
+      {{- end }}
       containers:
       - image: {{ .Values.image.name }}:{{ .Values.image.tag }}
         name: {{ template "traefik.fullname" . }}
@@ -54,6 +76,11 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 2
+        {{- if .Values.persistance.acme.enabled }}
+        volumeMounts:
+          - name: acme-volume
+            mountPath: /etc/traefik/acme
+        {{- end }}
         ports:
         {{- range $name, $config := .Values.ports }}
         - name: {{ $name | quote }}
@@ -70,6 +97,9 @@ spec:
           - "--ping=true"
           - "--providers.kubernetescrd"
           - "--log.level={{ .Values.logs.loglevel }}"
+          {{- if .Values.persistance.acme.enabled }}
+          - "--certificatesResolvers.le.acme.storage=/etc/traefik/acme/acme.json"
+          {{- end }}
           {{- with .Values.additionalArguments }}
           {{- range . }}
           - {{ . | quote }}
