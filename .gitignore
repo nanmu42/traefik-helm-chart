@@ -17,3 +17,6 @@ repo/
 
 # Unit test for helm
 __snapshot__
+
+# IDEs
+/.idea/
